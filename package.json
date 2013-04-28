@@ -1,0 +1,25 @@
+{
+  "name": "my_node_mturk",
+  "scripts": {
+    "start" : "node_modules/coffee-script/bin/coffee -w app.coffee"
+  },
+  "version": "0.0.1",
+  "private": true,
+  "readmeFilename": "README.md",
+  "dependencies":
+    {
+    "mongodb": "*",
+    "coffee-script": "*",
+    "mturk": "*",
+    "jsontoxml": "*",
+    "browser-logger": "*",
+    "express.io": "*",
+    "basic-logger": "*",
+    "connect-googleapps": "*",
+    "connect-assets": "*",
+    "connect-assets-jade": "*",
+    "jade": "*",
+    "stylus": "*",
+    "nib": "*"
+    }
+}
