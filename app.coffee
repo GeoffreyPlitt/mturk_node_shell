@@ -69,10 +69,16 @@ app.configure ->
     #  user_email: (x.value for x in req.user.emails)[0]
 
   app.io.route 'launch_hit', (req) ->
-    geoff_mturk.go ->
+    my_log = ->
       console.log '[geoff_mturk] ', arguments...
       req.io.emit 'log_output',
         data: arguments
+    try
+      if not req.data.creds
+        throw new Error('No AWS creds set.')
+      geoff_mturk.go req.data.creds[0], req.data.creds[1], my_log
+    catch ex
+      my_log ex.message, new Error().stack
 
   console.log "Server started, listening on port #{APP_PORT}"
   console.log ''

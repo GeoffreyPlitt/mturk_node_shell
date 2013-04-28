@@ -3,13 +3,43 @@ root = exports ? this
 
 io = window.io.connect()
 
-term = $('#term').terminal (command, term) ->
+HELP = [
+  'help'
+  '    Show this help info.'
+  'creds <KEY> <SECRET>'
+  '    Set AWS creds. Stored in browser cache.'
+  'clear_creds'
+  '    Remove stored AWS creds'
+  'go'
+  '    Launch a HIT with default options.'
+]
+
+term = $('#term').terminal (line, term) ->
+  parts = line.split ' '
+  command = parts[0]
+  args = (x for x in parts[1..] when x.length>0)
   switch command
     when 'go'
-      io.emit 'launch_hit'
+      creds = JSON.parse localStorage.getItem 'AWS_CREDS'
+      io.emit 'launch_hit',
+        creds: creds
     when 'help'
-      term.echo 'help: shows this message'
-      term.echo 'go: launches a hit'
+      (term.echo x for x in HELP)
+    when 'clear_creds'
+      localStorage.setItem 'AWS_CREDS', null
+      term.echo 'AWS creds cleared.'
+    when 'creds'
+      error_text = 'Expected 2 parameters: <KEY> <SECRET>'
+      if args.length != 2
+        term.error error_text
+      else
+        key = args[0]
+        secret = args[1]
+        if key.length==0 or secret.length==0
+          term.error error_text
+        else
+          localStorage.setItem 'AWS_CREDS', JSON.stringify [key, secret]
+          term.echo 'AWS creds stored in browser cache.'
     else
       term.error 'Unknown command.'
 

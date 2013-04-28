@@ -154,27 +154,23 @@ fix_answers = (answer_or_answers) ->
   else
     (_fix_answer x for x in answer_or_answers)
 
-_mturk = null
-get_mturk = ->
-  if not _mturk
-    key = process.env.AWS_KEY
-    secret = process.env.AWS_SECRET
-    if not key? or not secret?
-      throw new Error 'AWS creds not configured.'
+get_mturk = (key, secret) ->
+  if not key or not secret
+    throw new Error 'AWS creds not configured.'
 
-    _mturk = mturk_lib
-      # url: "https://mechanicalturk.sandbox.amazonaws.com"
-      url: "https://mechanicalturk.amazonaws.com/"
-      receptor:
-        port: 8080
-        host: undefined
+  ret = mturk_lib
+    # url: "https://mechanicalturk.sandbox.amazonaws.com"
+    url: "https://mechanicalturk.amazonaws.com/"
+    receptor:
+      port: 8080
+      host: undefined
 
-      poller:
-        frequency_ms: 3000  # 10000
+    poller:
+      frequency_ms: 3000  # 10000
 
-      accessKeyId: key
-      secretAccessKey: secret
-  _mturk # return
+    accessKeyId: key
+    secretAccessKey: secret
+  ret # return
 
 console_logger = ->
   console.log arguments...
@@ -185,59 +181,58 @@ describe_seconds = (s) ->
   else
     "#{(s/60.0).toFixed(2)} mins"
 
-root.go = (my_log) ->
-  try
-    reward =
-      Amount: '0.05'
-      CurrencyCode: 'USD'
-    duration_per_hit = '60' # 1 minute to complete each hit
-    hittype_options =
-      keywords: 'categorization, images'
-      autoApprovalDelayInSeconds: ONE_DAY_IN_SECONDS * 1
-    hit_options=
-      maxAssignments: 1
-    lifeTimeInSeconds = 60 * 0.5 # 10
+root.go = (aws_key, aws_secret, my_log) ->
+  reward =
+    Amount: '0.05'
+    CurrencyCode: 'USD'
+  duration_per_hit = '60' # 1 minute to complete each hit
+  hittype_options =
+    keywords: 'categorization, images'
+    autoApprovalDelayInSeconds: ONE_DAY_IN_SECONDS * 1
+  hit_options=
+    maxAssignments: 1
+  lifeTimeInSeconds = 60 * 10 # 10 mins
 
-    INFORM_EVERY = 5 # 30
+  INFORM_EVERY = 30 # 30 secs
 
-    mturk = get_mturk()
+  mturk = get_mturk aws_key, aws_secret
 
-    desc = question_json[0].children[0].Overview[0].Title
-    my_log "Asking people to \"#{desc}\", with at most #{hit_options.maxAssignments} results for $#{reward.Amount} each, expiring in #{describe_seconds lifeTimeInSeconds}..."
-    mturk.HITType.create desc, desc, reward, duration_per_hit, hittype_options, (error_list, resulting_hittype) ->
+  desc = question_json[0].children[0].Overview[0].Title
+  my_log "Asking people to \"#{desc}\", with at most #{hit_options.maxAssignments} results for $#{reward.Amount} each, expiring in #{describe_seconds lifeTimeInSeconds}..."
+  mturk.HITType.create desc, desc, reward, duration_per_hit, hittype_options, (error_list, resulting_hittype) ->
+    if error_list?
+      my_log 'ERRORS: ', error_list
+    #my_log 'Creating Hit...'
+    mturk.HIT.create resulting_hittype.id, (jsontoxml question_json), lifeTimeInSeconds, hit_options, (error_list, resulting_hit) ->
       if error_list?
         my_log 'ERRORS: ', error_list
-      #my_log 'Creating Hit...'
-      mturk.HIT.create resulting_hittype.id, (jsontoxml question_json), lifeTimeInSeconds, hit_options, (error_list, resulting_hit) ->
-        if error_list?
-          my_log 'ERRORS: ', error_list
-        # my_log "HIT #{resulting_hit.id} created. Listening for results..."
-        assignments_seen = []
-        j = 0
-        setInterval ->
-          mturk.HIT.getAssignments resulting_hit.id, {}, (err, numResults, totalNumResults, pageNumber, assignments) ->
-            # my_log 'Assignments info: ', arguments
-            assignments.forEach (assignment) ->
-              #my_log assignment
-              if (assignment.hitId == resulting_hit.id) and ((assignments_seen.indexOf assignment.id) == -1)
-                assignments_seen.push assignment.id
-                j+=1
-                fixed_answers = fix_answers assignment.answer.QuestionFormAnswers.Answer
-                result_text = ("#{x.key}=#{JSON.stringify x.val}" for x in fixed_answers).join ', '
-                my_log "Result ##{j}: #{result_text}"
-        , 10*1000
+      # my_log "HIT #{resulting_hit.id} created. Listening for results..."
+      assignments_seen = []
+      j = 0
+      setInterval ->
+        mturk.HIT.getAssignments resulting_hit.id, {}, (err, numResults, totalNumResults, pageNumber, assignments) ->
+          # my_log 'Assignments info: ', arguments
+          assignments.forEach (assignment) ->
+            #my_log assignment
+            if (assignment.hitId == resulting_hit.id) and ((assignments_seen.indexOf assignment.id) == -1)
+              assignments_seen.push assignment.id
+              j+=1
+              fixed_answers = fix_answers assignment.answer.QuestionFormAnswers.Answer
+              result_text = ("#{x.key}=#{JSON.stringify x.val}" for x in fixed_answers).join ', '
+              my_log "Result ##{j}: #{result_text}"
+      , 10*1000
 
-        i = INFORM_EVERY
-        intervalID = setInterval ->
-          if lifeTimeInSeconds-i <=0
-            clearInterval intervalID
-            my_log "(finished - HIT expired)"
-          else
-            my_log "(#{describe_seconds lifeTimeInSeconds-i} left)"
-            i += INFORM_EVERY
-        , INFORM_EVERY*1000
-  catch ex
-    my_log ex.message, new Error().stack
+      i = INFORM_EVERY
+      intervalID = setInterval ->
+        if lifeTimeInSeconds-i <=0
+          clearInterval intervalID
+          my_log "(finished - HIT expired)"
+        else
+          my_log "(#{describe_seconds lifeTimeInSeconds-i} left)"
+          i += INFORM_EVERY
+      , INFORM_EVERY*1000
 
 if require.main == module
-  go console_logger
+  key = process.env.AWS_KEY
+  secret = process.env.AWS_SECRET
+  go key, secret, console_logger
