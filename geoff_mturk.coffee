@@ -236,4 +236,4 @@ root.go = (aws_key, aws_secret, my_log) ->
 if require.main == module
   key = process.env.AWS_KEY
   secret = process.env.AWS_SECRET
-  go key, secret, console_logger
+  root.go key, secret, console_logger
