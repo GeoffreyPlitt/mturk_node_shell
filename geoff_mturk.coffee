@@ -1,6 +1,7 @@
 # Allow exporting via "root".
 root = exports ? this
 
+#mturk_lib = require "#{process.env.HOME}/mturk"
 mturk_lib = require 'mturk'
 jsontoxml = require 'jsontoxml'
 
@@ -154,7 +155,7 @@ fix_answers = (answer_or_answers) ->
   else
     (_fix_answer x for x in answer_or_answers)
 
-get_mturk = (key, secret) ->
+get_mturk = root.get_mturk = (key, secret) ->
   if not key or not secret
     throw new Error 'AWS creds not configured.'
 

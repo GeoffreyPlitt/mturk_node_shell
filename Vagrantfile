@@ -18,6 +18,17 @@ $BOOTSTRAP_SCRIPT = <<EOF
 	sudo apt-get install -y python-software-properties
 	sudo add-apt-repository ppa:chris-lea/node.js
 	sudo apt-get update
-	sudo apt-get install -y python-dev libmysqlclient-dev libpq-dev python-pip
+	sudo apt-get install -y python-dev build-essential g++ git libmysqlclient-dev libpq-dev python-pip
 	sudo apt-get install -y mongodb coffeescript nodejs
+
+	#------- MTURK-FORK
+    cd /home/vagrant
+    sudo su vagrant -c 'git clone https://github.com/GeoffreyPlitt/mturk'
+    cd mturk
+    sudo npm link
+
+	#------ NODE
+	cd /vagrant
+	rm -rf node_modules
+	npm install
 EOF
